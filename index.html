@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador - Painel de Controle de Iluminação</title>
+  <style>
+    :root {
+      --bg-dark: #0a0a0c;
+      --accent-color: #00adb5;
+      --accent-glow: rgba(0, 173, 181, 0.4);
+      --btn-off-bg: #1e1e24;
+      --text-primary: #ffffff;
+      --text-secondary: #8e8e93;
+      --brightness-pct: 1.0; /* Controlada dinamicamente via JS */
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 50% 30%, rgba(0, 173, 181, 0) 0%, #0a0a0c 70%);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      transition: background-image 0.5s ease, background-color 0.5s ease;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Efeito de iluminação suave projetada no fundo ao ligar o LED */
+    body.led-active {
+      background-image: radial-gradient(
+        circle at 50% 35%, 
+        rgba(0, 173, 181, calc(0.04 + 0.18 * var(--brightness-pct))) 0%, 
+        #0a0a0c 70%
+      );
+    }
+
+    .container {
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
+      padding: 30px 20px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin: 0 0 10px 0;
+      color: var(--text-primary);
+      transition: text-shadow 0.5s ease;
+    }
+
+    body.led-active h1 {
+      text-shadow: 0 0 15px rgba(0, 173, 181, calc(0.1 + 0.3 * var(--brightness-pct)));
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 50px;
+    }
+
+    /* Container do Botão Redondo de Energia */
+    .power-btn-wrapper {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 50px;
+    }
+
+    .power-btn {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: var(--btn-off-bg);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.5),
+        inset 0 1px 2px rgba(255, 255, 255, 0.05);
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .power-btn svg {
+      width: 54px;
+      height: 54px;
+      stroke: var(--text-secondary);
+      stroke-width: 2;
+      fill: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Estado Ativo (Ligado) com Brilho Reativo à Intensidade */
+    body.led-active .power-btn {
+      background: radial-gradient(circle, #00adb5 0%, #008f95 100%);
+      border-color: #00adb5;
+      box-shadow: 
+        0 0 calc(20px + 30px * var(--brightness-pct)) rgba(0, 173, 181, calc(0.2 + 0.5 * var(--brightness-pct))),
+        inset 0 1px 3px rgba(255, 255, 255, 0.4);
+    }
+
+    body.led-active .power-btn svg {
+      stroke: #ffffff;
+      filter: drop-shadow(0 0 calc(4px + 6px * var(--brightness-pct)) rgba(255, 255, 255, 0.8));
+    }
+
+    /* Anel de brilho externo decorativo */
+    .glow-ring {
+      position: absolute;
+      top: -12px;
+      left: -12px;
+      right: -12px;
+      bottom: -12px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 173, 181, 0);
+      transform: scale(0.9);
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    body.led-active .glow-ring {
+      border-color: rgba(0, 173, 181, calc(0.05 + 0.15 * var(--brightness-pct)));
+      transform: scale(1.1);
+      box-shadow: inset 0 0 calc(10px + 15px * var(--brightness-pct)) rgba(0, 173, 181, calc(0.05 + 0.15 * var(--brightness-pct)));
+    }
+
+    /* Card do Controle Deslizante com Efeitos Suaves de Transição */
+    .slider-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 24px;
+      padding: 24px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transform: translateY(20px) scale(0.95);
+      pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body.led-active .slider-card {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .slider-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .slider-value {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .slider-value span.val {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent-color);
+      transition: text-shadow 0.3s;
+    }
+
+    body.led-active .slider-value span.val {
+      text-shadow: 0 0 10px rgba(0, 173, 181, calc(0.1 + 0.3 * var(--brightness-pct)));
+    }
+
+    /* Estilização Customizada do Range Input */
+    .slider-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      height: 40px;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      margin: 0;
+      transition: background 0.2s ease;
+    }
+
+    /* Thumb (Botão Arrastável) - WebKit (Chrome/Safari) */
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow: 
+        0 4px 10px rgba(0, 0, 0, 0.5),
+        0 0 0 4px rgba(0, 173, 181, calc(0.15 + 0.25 * var(--brightness-pct)));
+      transition: transform 0.15s, box-shadow 0.2s;
+      margin-top: -10px;
+    }
+
+    .slider:disabled::-webkit-slider-thumb {
+      background: #55555d;
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: scale(0.9);
+    }
+
+    .slider::-webkit-slider-thumb:active {
+      transform: scale(1.15);
+    }
+
+    .slider::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+    }
+
+    /* Thumb - Firefox */
+    .slider::-moz-range-thumb {
+      width: 26px;
+      height: 26px;
+      border: none;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow: 
+        0 4px 10px rgba(0, 0, 0, 0.5),
+        0 0 0 4px rgba(0, 173, 181, calc(0.15 + 0.25 * var(--brightness-pct)));
+      transition: transform 0.15s, box-shadow 0.2s;
+    }
+
+    .slider:disabled::-moz-range-thumb {
+      background: #55555d;
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: scale(0.9);
+    }
+
+    /* Estilos do Painel de Simulação (Apenas para o modo Offline) */
+    .sim-badge {
+      position: absolute;
+      top: 15px;
+      font-size: 10px;
+      background: rgba(0, 173, 181, 0.15);
+      color: #00adb5;
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 173, 181, 0.3);
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .sim-control-panel {
+      position: absolute;
+      bottom: 15px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 10px 15px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .sim-control-panel label {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .sim-control-panel input {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- Indicador do modo Simulação -->
+  <div class="sim-badge">Simulador Offline</div>
+
+  <div class="container">
+    <h1 id="titleText">Iluminação</h1>
+    <div id="statusSubtitle" class="subtitle">Desconectado</div>
+
+    <!-- Botão de Liga/Desliga Circular Premium -->
+    <div class="power-btn-wrapper">
+      <div class="glow-ring" id="glowRing"></div>
+      <button class="power-btn" id="powerBtn" onclick="toggleLed()" aria-label="Ligar ou Desligar">
+        <svg viewBox="0 0 24 24">
+          <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+          <line x1="12" y1="2" x2="12" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Card de Controle de Intensidade -->
+    <div class="slider-card" id="sliderCard">
+      <div class="slider-header">
+        <span class="slider-title">Intensidade</span>
+        <span class="slider-value"><span id="pwmValue" class="val">255</span> / 255</span>
+      </div>
+      <div class="slider-container">
+        <!-- Alterado para refletir o min="0" modificado por você -->
+        <input type="range" min="0" max="255" value="255" class="slider" id="pwmSlider" oninput="updatePWMLocal(this.value)" onchange="sendPWMUpdate(this.value)" disabled>
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel inferior para controlar variáveis simuladas da ESP32 -->
+  <div class="sim-control-panel">
+    <span>Simular Rede ESP32:</span>
+    <label>
+      <input type="radio" name="netMode" value="STA" checked onchange="changeSimMode('STA')"> Rede Local (STA)
+    </label>
+    <label>
+      <input type="radio" name="netMode" value="AP" onchange="changeSimMode('AP')"> Modo Direto (AP)
+    </label>
+  </div>
+
+  <script>
+    // --- ESTADO FICTÍCIO DO DISPOSITIVO (Em memória do Navegador) ---
+    let localDeviceState = {
+      state: false,
+      brightness: 255,
+      mode: "STA"
+    };
+
+    // Executa ao carregar a página
+    document.addEventListener("DOMContentLoaded", () => {
+      syncState();
+    });
+
+    // Simula a sincronização inicial com a placa
+    function syncState() {
+      const subtitle = document.getElementById('statusSubtitle');
+      subtitle.innerText = "Sincronizando...";
+      
+      setTimeout(() => {
+        updateUI(localDeviceState.state, localDeviceState.brightness, localDeviceState.mode);
+        console.log("Mock sincronizado:", localDeviceState);
+      }, 500);
+    }
+
+    // Altera o estado de liga/desliga localmente
+    function toggleLed() {
+      localDeviceState.state = !localDeviceState.state;
+      console.log("Chamada simulada -> /toggle | Novo estado:", localDeviceState);
+      updateUI(localDeviceState.state, localDeviceState.brightness, localDeviceState.mode);
+    }
+
+    // Atualiza a interface em tempo real enquanto o usuário arrasta
+    function updatePWMLocal(val) {
+      document.getElementById('pwmValue').innerText = val;
+      updateCSSBrightness(val);
+      updateSliderTrack(val);
+    }
+
+    // Simula o envio do valor final da intensidade para o microcontrolador
+    function sendPWMUpdate(val) {
+      localDeviceState.brightness = parseInt(val);
+      localDeviceState.state = true; // Se o slider foi arrastado, a fita acende
+      console.log("Chamada simulada -> /slider?value=" + val + " | Novo estado:", localDeviceState);
+      updateUI(localDeviceState.state, localDeviceState.brightness, localDeviceState.mode);
+    }
+
+    // Simulação auxiliar: permite trocar o modo de rede simulado do painel
+    function changeSimMode(mode) {
+      localDeviceState.mode = mode;
+      console.log("Modo de rede simulado alterado para:", mode);
+      updateUI(localDeviceState.state, localDeviceState.brightness, localDeviceState.mode);
+    }
+
+    // --- Lógica de Interface (Idêntica ao código que rodará no ESP32) ---
+    function updateUI(state, brightness, mode) {
+      const body = document.body;
+      const slider = document.getElementById('pwmSlider');
+      const valDisplay = document.getElementById('pwmValue');
+      const subtitle = document.getElementById('statusSubtitle');
+
+      const modeText = mode === "AP" ? "Modo Direto" : "Rede Local";
+      subtitle.innerText = state ? `Ligado (${modeText})` : `Desligado (${modeText})`;
+
+      if (state) {
+        body.classList.add('led-active');
+        slider.disabled = false;
+        slider.value = brightness;
+        valDisplay.innerText = brightness;
+        updateCSSBrightness(brightness);
+        updateSliderTrack(brightness);
+      } else {
+        body.classList.remove('led-active');
+        slider.disabled = true;
+        updateCSSBrightness(0);
+      }
+    }
+
+    function updateCSSBrightness(brightness) {
+      const pct = brightness / 255.0;
+      document.documentElement.style.setProperty('--brightness-pct', pct);
+    }
+
+    // Lógica do slider com leitura segura do min/max
+    function updateSliderTrack(val) {
+      const slider = document.getElementById('pwmSlider');
+      const min = isNaN(parseInt(slider.min)) ? 0 : parseInt(slider.min);
+      const max = parseInt(slider.max) || 255;
+      const pct = ((val - min) / (max - min)) * 100;
+      slider.style.background = `linear-gradient(to right, var(--accent-color) 0%, var(--accent-color) ${pct}%, rgba(255, 255, 255, 0.1) ${pct}%, rgba(255, 255, 255, 0.1) 100%)`;
+    }
+  </script>
+</body>
+</html>
