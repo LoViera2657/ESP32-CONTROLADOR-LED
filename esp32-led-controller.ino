@@ -305,7 +305,7 @@ const char htmlPage[] PROGMEM = R"rawliteral(
     <div class="slider-card" id="sliderCard">
       <div class="slider-header">
         <span class="slider-title">Intensidade</span>
-        <span class="slider-value"><span id="pwmValue" class="val">255</span> / 255</span>
+        <span class="slider-value"><span id="pwmValue" class="val">100%</span></span>
       </div>
       <div class="slider-container">
         <input type="range" min="0" max="255" value="255" class="slider" id="pwmSlider" oninput="updatePWMLocal(this.value)" onchange="sendPWMUpdate(this.value)" disabled>
@@ -350,7 +350,8 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 
     // Atualiza a interface localmente enquanto arrasta (sem sobrecarregar a ESP32)
     function updatePWMLocal(val) {
-      document.getElementById('pwmValue').innerText = val;
+      const percentage = Math.round((val / 255.0) * 100);
+      document.getElementById('pwmValue').innerText = percentage + '%';
       updateCSSBrightness(val);
       updateSliderTrack(val);
     }
@@ -379,7 +380,8 @@ const char htmlPage[] PROGMEM = R"rawliteral(
         body.classList.add('led-active');
         slider.disabled = false;
         slider.value = brightness;
-        valDisplay.innerText = brightness;
+        const percentage = Math.round((brightness / 255.0) * 100);
+        valDisplay.innerText = percentage + '%';
         updateCSSBrightness(brightness);
         updateSliderTrack(brightness);
       } else {
