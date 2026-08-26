@@ -8,7 +8,7 @@
 // --- Credenciais do Wi-Fi ---
 // Configure as informações da sua rede local aqui
 const char* ssid = "VIVOFIBRA-WIFI6-9838"; 
-const char* password = "LOlela05";
+const char* password = "********";
 
 WebServer server(80);
 Preferences preferences;
@@ -481,7 +481,7 @@ void setup() {
 
     // --- Configuração do ArduinoOTA (Atualização via Wi-Fi) ---
     ArduinoOTA.setHostname("Lampada-da-Cama"); // Nome que aparecerá na IDE do Arduino
-    ArduinoOTA.setPassword("LOlela1911@"); 
+    ArduinoOTA.setPassword("*********"); 
     
     ArduinoOTA.onStart([]() {
       Serial.println("Iniciando atualização OTA...");
