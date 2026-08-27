@@ -2,25 +2,23 @@
 #include <WebServer.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
-#include <Espalexa.h> // Biblioteca para integração com a Alexa
-#include <ArduinoOTA.h> // Biblioteca para atualizações sem fio (Over-The-Air)
+#include <Espalexa.h> 
+#include <ArduinoOTA.h> 
 
-// --- Credenciais do Wi-Fi ---
-// Configure as informações da sua rede local aqui
 const char* ssid = "VIVOFIBRA-WIFI6-9838"; 
 const char* password = "********";
 
 WebServer server(80);
 Preferences preferences;
-Espalexa espalexa; // Instância da Espalexa
+Espalexa espalexa;
 
-const int ledPin = 4; // Pino GPIO da ESP32 conectado ao Gate do MOSFET
+const int ledPin = 4; 
 
 // Variáveis de controle de estado
 bool isLedOn = false;
-int currentBrightness = 255;  // Brilho inicial
+int currentBrightness = 255; 
 
-// Interface Web Premium (HTML, CSS e JS incorporados usando PROGMEM para otimização de memória)
+// (HTML, CSS e JS incorporados usando PROGMEM para otimização de memória)
 const char htmlPage[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -412,19 +410,17 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-// Função callback invocada pela Alexa quando há uma requisição
+// Callback invocada pela Alexa
 void alexaCallback(uint8_t brightness) {
-  // A Alexa envia brilho de 0 (desligado) a 255 (ligado 100%)
   if (brightness == 0) {
     isLedOn = false;
-    analogWrite(ledPin, 255); // 255 desliga o MOSFET
+    analogWrite(ledPin, 255); 
   } else {
     isLedOn = true;
     currentBrightness = brightness;
-    analogWrite(ledPin, 255 - currentBrightness); // Ajusta o brilho físico
+    analogWrite(ledPin, 255 - currentBrightness); 
   }
   
-  // Atualiza a memória Flash (NVS) de forma otimizada
   if (preferences.getBool("state", false) != isLedOn) {
     preferences.putBool("state", isLedOn);
   }
@@ -433,7 +429,7 @@ void alexaCallback(uint8_t brightness) {
   }
 }
 
-// Função para enviar o JSON padronizado usando a biblioteca ArduinoJson
+// JSON padronizado
 void sendJsonResponse(bool state, int brightness) {
   JsonDocument doc;
   doc["state"] = state;
@@ -448,39 +444,34 @@ void sendJsonResponse(bool state, int brightness) {
 void setup() {
   Serial.begin(115200);
   
-  // Abre o namespace "led" nas preferências em modo leitura/escrita (false)
   preferences.begin("led", false);
   
-  // Recupera o estado anterior gravado na memória Flash NVS. 
-  // Caso não existam dados salvos, define os valores padrões indicados no segundo parâmetro.
   isLedOn = preferences.getBool("state", false);
   currentBrightness = preferences.getInt("brightness", 255);
   
-  // Configuração do pino e inicialização no estado recuperado da NVS
   pinMode(ledPin, OUTPUT);
   analogWrite(ledPin, isLedOn ? (255 - currentBrightness) : 255); 
 
-  // Conexão Wi-Fi (Modo Station) com limite de tentativas (Timeout)
+  // Conexão Wi-Fi
   Serial.print("Conectando ao Wi-Fi: ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
   
   int tentativas = 0;
-  const int maxTentativas = 20; // 20 tentativas * 500ms = 10 segundos
+  const int maxTentativas = 20; 
   while (WiFi.status() != WL_CONNECTED && tentativas < maxTentativas) {
     delay(500);
     Serial.print(".");
     tentativas++;
   }
   
-  // Se conectou, imprime as informações da rede local
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\nConectado com sucesso no modo Station (STA)!");
     Serial.print("IP do Painel de Controle: ");
     Serial.println(WiFi.localIP());
 
-    // --- Configuração do ArduinoOTA (Atualização via Wi-Fi) ---
-    ArduinoOTA.setHostname("Lampada-da-Cama"); // Nome que aparecerá na IDE do Arduino
+    // (Atualização via Wi-Fi) ---
+    ArduinoOTA.setHostname("Lampada-da-Cama");
     ArduinoOTA.setPassword("*********"); 
     
     ArduinoOTA.onStart([]() {
@@ -504,38 +495,33 @@ void setup() {
     ArduinoOTA.begin();
     Serial.println("Serviço OTA iniciado. Pronto para receber atualizações sem fio.");
   } 
-  // Caso ocorra timeout, entra no modo Access Point (AP) como fallback
+  // Caso não conecte no wifi, entra no modo Access Point
   else {
     Serial.println("\nFalha ao conectar no Wi-Fi configurado.");
     Serial.println("Iniciando no modo Access Point (AP) de fallback...");
     
-    // SSID: ESP32-LED-Painel, sem senha
     WiFi.softAP("ESP32-LED-Painel");
     
     Serial.println("Ponto de Acesso (AP) ativo!");
     Serial.println("SSID: ESP32-LED-Painel");
     Serial.print("IP para acesso direto: ");
-    Serial.println(WiFi.softAPIP()); // Geralmente 192.168.4.1
+    Serial.println(WiFi.softAPIP());
   }
-
-  // Rota principal: Serve a página HTML
+// Rotas
   server.on("/", HTTP_GET, []() {
     server.send(200, "text/html", htmlPage);
   });
 
-  // Rota de status passivo (usado na inicialização da página)
   server.on("/status", HTTP_GET, []() {
     sendJsonResponse(isLedOn, currentBrightness);
   });
 
-  // Rota do botão liga/desliga
+  // liga/desliga
   server.on("/toggle", HTTP_GET, []() {
     isLedOn = !isLedOn;
     
-    // Liga no brilho memorizado ou desliga (0 PWM)
     analogWrite(ledPin, isLedOn ? (255 - currentBrightness) : 255);
     
-    // Grava na NVS apenas se o valor físico tiver mudado para preservar a memória Flash
     if (preferences.getBool("state", false) != isLedOn) {
       preferences.putBool("state", isLedOn);
     }
@@ -543,16 +529,14 @@ void setup() {
     sendJsonResponse(isLedOn, currentBrightness);
   });
 
-  // Rota de atualização do slider
   server.on("/slider", HTTP_GET, []() {
     if (server.hasArg("value")) {
       int val = server.arg("value").toInt();
       if (val >= 0 && val <= 255) {
         currentBrightness = val;
-        isLedOn = true; // Se o slider foi movido, assume-se que o LED deve acender
+        isLedOn = true; 
         analogWrite(ledPin, 255 - currentBrightness);
         
-        // Grava na NVS se o valor de brilho ou estado tiverem sido alterados
         if (preferences.getInt("brightness", 255) != currentBrightness) {
           preferences.putInt("brightness", currentBrightness);
         }
@@ -561,28 +545,26 @@ void setup() {
         }
       }
     }
-    
     sendJsonResponse(isLedOn, currentBrightness);
   });
 
-  // Rota obrigatória para a Espalexa interceptar requisições quando usamos um servidor web próprio
+  // Rota obrigatória para a Espalexa interceptar requisições
   server.onNotFound([](){
     if (!espalexa.handleAlexaApiCall(server.uri(), server.arg(0))) {
       server.send(404, "text/plain", "Página não encontrada");
     }
   });
 
-  // Configura o dispositivo na Alexa e associa ao servidor Web existente
+  // Configurando o dispositivo na Alexa e associando ao servidor Web existente
   espalexa.addDevice("Lampada da Cama", alexaCallback);
   espalexa.begin(&server);
 
-  // Inicializa o servidor web
   server.begin();
   Serial.println("Servidor Web HTTP e Alexa iniciados com sucesso.");
 }
 
 void loop() {
   server.handleClient();
-  espalexa.loop(); // Processa as requisições da Alexa
-  ArduinoOTA.handle(); // Processa as requisições de atualização sem fio
+  espalexa.loop(); 
+  ArduinoOTA.handle(); 
 }
